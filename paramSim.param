@@ -1,0 +1,14 @@
+20				# Number of nodes
+0				# Network model (0: Watts-Strogatz; 1: Barabasi-Albert)
+6				# Average degree of nodes (even number)
+1.0				# Probability of rewired (WS)
+5				# Initial infected nodes 
+7				# Start of lockdown (days in a row with an increase in new cases) 
+0				# End of lockdown (days)
+0				# Time lapse in lockdown (days)
+220				# Introduction of the variant 2 (days)
+0.5				# Probability of developing infection
+0.022				# Probability of infecting with variant 1 
+0.025				# Probability of infecting with variant 2 
+1825				# Maximum number of days to simulate 
+12345				# Seed (random numbers)
