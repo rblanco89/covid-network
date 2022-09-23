@@ -22,7 +22,7 @@ struct Ran
                 return (x + v) ^ w;
         }
         // Return random double-precision floating value in the range from 0 to 1
-        inline double doub() { return 5.42101086242752217E-20 * int64(); }
+        inline double doub() { return 5.42101086242752217E-20 * int64(); } // multiply by 1/INT_MAX
         // Return 32-bit random integer
         inline unsigned int int32() { return (unsigned int)int64(); }
 };

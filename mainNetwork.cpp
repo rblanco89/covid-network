@@ -33,13 +33,13 @@ void genWSnet(int *edge, int *nodeDegree, int nEdges,
 		jj = edge[ee];
 
 		if (betaWS < 1.0)
-			if (ranUni.doub() >= betaWS) continue; // Do not rewire
+			if (ranUni.doub() >= betaWS) continue; // Doesn't rewire
 
 		nodeDegree[jj]--;
 		accept = 0;
 		while (!accept)
 		{
-			jj = (int) nNodes*ranUni.doub();
+			jj = ranUni.int32()%nNodes;
 			if (jj == ii) continue; // avoid self-loop
 
 			// Find if the edge already exists
@@ -83,8 +83,8 @@ void genBAnet(int *edge, int *nodeDegree, int nNodes, int K, Ran ranUni)
 	int *bagIds, lenBagIds;
 	lenBagIds = (nNodes - initNodes)*(K+1) + initNodes;
 	bagIds = (int*) malloc(lenBagIds*sizeof(int));
-	memset(bagIds, -1, lenBagIds*sizeof(int));
 	for (ii=0; ii<initNodes; ii++) bagIds[ii] = ii; // Collect the initial nodes in the bag
+	for (ii=initNodes; ii<lenBagIds; ii++) bagIds[ii] = -1;
 
 	// Connect each new node to previous nodes with
 	// a probability dependent on their degrees
@@ -99,8 +99,7 @@ void genBAnet(int *edge, int *nodeDegree, int nNodes, int K, Ran ranUni)
 			accept = 0;
 			while (!accept)
 			{
-				trial = (int) countIds*ranUni.doub();
-				if (trial == countIds) trial--;
+				trial = ranUni.int32()%countIds;
 
 				jj = bagIds[trial];
 				if (jj == ii) continue;
@@ -133,9 +132,16 @@ void genBAnet(int *edge, int *nodeDegree, int nNodes, int K, Ran ranUni)
 
 //---------------------------------------------------------------------------------//
 
-void printNetwork(FILE *fNodes, FILE *fEdges, short *nodeStatus, int *edge,
-		int nNodes, int nEdges, int K)
+void printNetwork(short *nodeStatus, int *edge, int nNodes, int nEdges, int K)
 {
+	FILE *fNodes, *fEdges;
+
+	fNodes = fopen("nodesArray.dat", "w");
+	fprintf(fNodes, "#X\tY\tStatus\n");
+
+	fEdges = fopen("edgesVec.dat", "w");
+	fprintf(fEdges, "#X1\tY1\tX2\tY2\tLockdown\n");
+
 	float *xxNode, *yyNode;
 	xxNode = (float*) malloc(nNodes*sizeof(float));
 	yyNode = (float*) malloc(nNodes*sizeof(float));
@@ -168,6 +174,9 @@ void printNetwork(FILE *fNodes, FILE *fEdges, short *nodeStatus, int *edge,
 
 	free(xxNode);
 	free(yyNode);
+
+	fclose(fNodes);
+	fclose(fEdges);
 }
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- MAIN =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
@@ -179,7 +188,7 @@ int main()
 	long seed;
 	int netModel, aveD, initInfec, ldStart, ldEnd, interval, variant2Intro, maxDays;
 	float xNodes, betaWS;
-	float probInfec1, probInfec2, probDevInfec;
+	float probRandomLD, probInfec1, probInfec2, probDevInfec, vaccNodesFrac, vaccPerDayFrac;
 	char renglon[200];
 
 	// Number of nodes
@@ -201,6 +210,10 @@ int main()
 	// Initial infected nodes
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &initInfec);
+
+	// Probability to restrict en edge during the LD
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%f", &probRandomLD);
 
 	// Start of lockdown
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
@@ -230,6 +243,14 @@ int main()
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%f", &probInfec2);
 
+	// Fraction of vaccinated nodes
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%f", &vaccNodesFrac);
+
+	// Fraction of vaccinated nodes per day
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%f", &vaccPerDayFrac);
+
 	// Maximum number of days to simulate
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &maxDays);
@@ -244,7 +265,7 @@ int main()
 		exit (1);
 	}
 
-	// Initialize random numbers
+	// Initialize random uniform numbers
 	Ran ranUni(seed);
 	// Exposed time = 3d +- 1d
 	Gammadev gammaE(9.0,3.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
@@ -270,31 +291,49 @@ int main()
 		genBAnet(edge, nodeDegree, nNodes, K, ranUni);
 
 	int ee, ii, jj, kk;
-       	int auxInt;
+       	int auxInt, count;
 	int maxDegree;
 	int halfNodes = nNodes/2;
 
-	maxDegree = 0;
-	for (ii=0; ii<nNodes; ii++) if (nodeDegree[ii] > maxDegree) maxDegree = nodeDegree[ii];
-	maxDegree++;
+	// Lockdown:
+	int *edgeLD;
+	edgeLD = (int*) malloc(nEdges*sizeof(int));
 
-	// Lockdown: Print degree of the networks
+	for (ee=0; ee<nEdges; ee++)
+	{
+		if (probRandomLD > 0.0) 
+			if (ranUni.doub() > probRandomLD) edgeLD[ee] = 1;
+			else edgeLD[ee] = 0;
+		else
+		{
+			ii = ee/K;
+			jj = edge[ee];
+	
+			auxInt = abs(ii - jj);
+			if (auxInt > halfNodes) auxInt = nNodes - auxInt;
+			if (auxInt <= K) edgeLD[ee] = 1;
+			else edgeLD[ee] = 0;
+		}
+	}
+	
+	// Print degree of the networks
 	int *nodeDegreeLD;
 	nodeDegreeLD = (int*) malloc(nNodes*sizeof(int));
 	for (ii=0; ii<nNodes; ii++) nodeDegreeLD[ii] = nodeDegree[ii];
 
 	for (ee=0; ee<nEdges; ee++)
 	{
+		if (edgeLD[ee] == 1) continue;
 		ii = ee/K;
 		jj = edge[ee];
-	
-		auxInt = abs(ii - jj);
-		if (auxInt > halfNodes) auxInt = nNodes - auxInt;
-		if (auxInt <= nNodes/4) continue;
 
 		nodeDegreeLD[ii]--;
 		nodeDegreeLD[jj]--;
 	}
+
+	maxDegree = 0;
+	for (ii=0; ii<nNodes; ii++) if (nodeDegree[ii] > maxDegree) maxDegree = nodeDegree[ii];
+	maxDegree++;
 
 	int *degree, *degreeLD;
 	degree = (int*) malloc(maxDegree*sizeof(int));
@@ -312,15 +351,22 @@ int main()
 	fDegree = fopen("netDegree.dat", "w");
 	fprintf(fDegree, "#Contacts\tFreq\tFreqLD\n");
 
+	count = 0;
+	auxInt = 0.0001*nNodes;
 	for (ee=0; ee<maxDegree; ee++)
+	{
+		if (degree[ee] < auxInt) count++;
+		else count = 0;
 		fprintf(fDegree, "%d\t%d\t%d\n", ee, degree[ee], degreeLD[ee]);
+		if (ee > aveD && count > 10) break; // Doesn't write high degrees with less than 0.01% of nodes
+	}
 
 	fclose(fDegree);
 
 	free(degree);
 	free(degreeLD);
-	free(nodeDegree);
 	free(nodeDegreeLD);
+	free(nodeDegree);
 
 	//===| SIMULATION |===//
 	
@@ -333,7 +379,7 @@ int main()
 	fprintf(fNewCases, "#Day\tE\tI\tR\tE2\tI2\tR2\tLock\n");
 
 	// Status (SEIR: Susceptible, Exposed, Infected, Removed)
-	// 0:S, 1:E, 2:I, 3:R, -1:E2, -2:I2, -3:R2, 4:D, -4:D2
+	// 0:S, 1:E, 2:I, 3:R, -1:E2, -2:I2, -3:R2, 4:V1, -4:V2
 	short *nodeStatus, *nodeInfec;	
 
 	nodeStatus = (short*) malloc(nNodes*sizeof(short));
@@ -370,20 +416,51 @@ int main()
 	newI2 = 0;
 	newR2 = 0;
 	oldI = 0;
+	daysNewI = 0;
 
 	// Choosing random node for Infected status
 	for (nn=0; nn<initInfec; nn++)
 	{
-		auxInt = (int) nNodes*ranUni.doub();
-		while (nodeStatus[auxInt] != 0) auxInt = (int) nNodes*ranUni.doub();
+		auxInt = ranUni.int32()%nNodes;
+		while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
 		nodeStatus[auxInt] = 2; // Infected
 		nSuscep--;
 		nInfec++;
 		newI++;
 	}
 
-	short flagLockdown, flagVariant2, switchLD, count;
+	short flagVacc;
+	short *vaccTime, *vaccStatus;
+	int *vaccOrder;
+	int vaccGoal, vaccPerDay, idxV;
+	float ineff1, ineff2;
+
+	vaccTime = (short*) malloc(nNodes*sizeof(short));
+	for (nn=0; nn<nNodes; nn++) vaccTime[nn] = 14;
+	//for (nn=0; nn<nNodes; nn++) vaccTime[nn] = 30;
+	vaccStatus = (short*) malloc(nNodes*sizeof(short));
+	memset(vaccStatus, 0, nNodes*sizeof(short));
+
+	// Shuffles the indexes of the nodes (vaccination order)
+	vaccOrder = (int*) malloc(nNodes*sizeof(int));
+	for (ii=0; ii<nNodes; ii++)
+	{
+		jj = ranUni.int32()%(ii+1);
+		if (jj != ii) vaccOrder[ii] = vaccOrder[jj];
+		vaccOrder[jj] = ii;
+	}
+
+	idxV = 0;
+	flagVacc = 0;
+	ineff1 = 0.35;
+	//ineff1 = 1.0;
+	ineff2 = 0.05;
+	vaccGoal = vaccNodesFrac*nNodes;
+	vaccPerDay = vaccPerDayFrac*vaccGoal;
+
+	short flagLockdown, flagVariant2, switchLD;
 	int time, timeLD;
+	float auxF;
 
 	flagVariant2 = 0;
 	flagLockdown = 0;
@@ -391,12 +468,6 @@ int main()
 	count = 0;
 	time = 0;
 	timeLD = 0;
-
-//	FILE *fNodes, *fEdges;
-//	fNodes = fopen("nodesArray.dat", "w");
-//	fprintf(fNodes, "#X\tY\tStatus\n");
-//	fEdges = fopen("edgesVec.dat", "w");
-//	fprintf(fEdges, "#X1\tY1\tX2\tY2\tLockdown\n");
 
 	while (1)
 	{
@@ -421,6 +492,7 @@ int main()
 			if (daysNewI > ldStart)
 			{
 				flagLockdown = 1; // Activate lockdown once
+				flagVacc = 1; // Activate vaccination 
 				switchLD = 1;
 			}
 		}
@@ -460,15 +532,35 @@ int main()
 		}
 
 		if (time > maxDays) break;
+
+		// Vaccinates Susceptible nodes
+		if (flagVacc)
+		{
+			nn = 0;
+			while (nn<vaccPerDay)
+			{
+				if (idxV == nNodes) break;
+				auxInt = vaccOrder[idxV];
+				idxV++;
+				if (nodeStatus[auxInt] != 0) continue;
+				if (vaccStatus[auxInt] != 0) continue;
+				vaccStatus[auxInt] = 1;
+				nn++;
+				vaccGoal--;
+				if (vaccGoal == 0) break;
+			}
+			if (vaccGoal == 0) flagVacc = 0;
+			if (idxV == nNodes) flagVacc = 0;
+		}
 		
-		// Find a Susceptible (0) node and infects it with variant 2
+		// Finds a Susceptible (0) node and infects it with variant 2
 		if (time == variant2Intro)
 		{
 			flagVariant2 = 1;
 			for (nn=0; nn<initInfec; nn++)
 			{
-				auxInt = (int) nNodes*ranUni.doub();
-				while (nodeStatus[auxInt] != 0) auxInt = (int) nNodes*ranUni.doub();
+				auxInt = ranUni.int32()%nNodes;
+				while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
 				nodeStatus[auxInt] = -2; // Infected 2
 				nSuscep--;
 				nInfec2++;
@@ -479,23 +571,28 @@ int main()
 		// Identifies the suceptible nodes and determine if they will be infected
 		for (ee=0; ee<nEdges; ee++)
 		{
+			// Lockdown resriction
+			if (switchLD && edgeLD[ee] == 0) continue;
+
 			ii = ee/K;
 			jj = edge[ee];
-
-			// Lockdown resriction
-			if (switchLD)
-			{
-				auxInt = abs(ii - jj);
-				if (auxInt > halfNodes) auxInt = nNodes - auxInt;
-				if (auxInt > K) continue;
-			}
 
 			iiStatus = nodeStatus[ii];
 			jjStatus = nodeStatus[jj];
 
 			if (iiStatus == 0) // Susceptible
 			{
-				if (jjStatus == 2) if (ranUni.doub() <= probInfec1) nodeInfec[ii] = 1;
+				auxInt = vaccStatus[ii];
+				if (auxInt == 0) auxF = 1.0; // No vaccinated
+				if (auxInt == 1) auxF = ineff1; // Vaccinated with one dose 
+				if (auxInt == 2) auxF = ineff2; // Vaccinated with two doses 
+
+				if (jjStatus == 2) if (ranUni.doub() <= auxF*probInfec1)
+				{
+					nodeInfec[ii] = 1;
+					if (auxInt == 1) vaccStatus[ii] = -1;
+					if (auxInt == 2) vaccStatus[ii] = -2;
+				}
 				if (jjStatus == -2) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
 			}
 
@@ -506,7 +603,17 @@ int main()
 
 			if (jjStatus == 0) // Susceptible
 			{
-				if (iiStatus == 2) if (ranUni.doub() <= probInfec1) nodeInfec[jj] = 1;
+				auxInt = vaccStatus[jj];
+				if (auxInt == 0) auxF = 1.0; // No vaccinated
+				if (auxInt == 1) auxF = ineff1; // Vaccinated with one dose 
+				if (auxInt == 2) auxF = ineff2; // Vaccinated with two doses 
+
+				if (iiStatus == 2) if (ranUni.doub() <= auxF*probInfec1)
+				{
+					nodeInfec[jj] = 1;
+					if (auxInt == 1) vaccStatus[jj] = -1;
+					if (auxInt == 2) vaccStatus[jj] = -2;
+				}
 				if (iiStatus == -2) if (ranUni.doub() <= probInfec2) nodeInfec[jj] = -1;
 			}
 
@@ -519,6 +626,13 @@ int main()
 		// Update states
 		for (ii=0; ii<nNodes; ii++)
 		{
+			// Update status of the vaccination
+			if (vaccStatus[ii] == 1)
+			{
+				vaccTime[ii]--;
+				if (vaccTime[ii] == 0) vaccStatus[ii] = 2;
+			}
+
 			iiStatus = nodeStatus[ii];
 
 			if (iiStatus == 0) // Suceptible
@@ -620,28 +734,44 @@ int main()
 				nodeInfec[ii] = 0;
 				continue;
 			}
-
 		}
-		//if (time == 5) printNetwork(fNodes, fEdges, nodeStatus, edge, nNodes, nEdges, K);
+		//if (time == 5) printNetwork(nodeStatus, edge, nNodes, nEdges, K);
 	}
 
 	fclose(fNetStatus);
 	fclose(fNewCases);
 
-//	FILE *fNodes, *fEdges;
-//	fNodes = fopen("nodesArray.dat", "w");
-//	fprintf(fNodes, "#X\tY\tStatus\n");
-//	fEdges = fopen("edgesVec.dat", "w");
-//	fprintf(fEdges, "#X1\tY1\tX2\tY2\tLockdown\n");
-//	printNetwork(fNodes, fEdges, nodeStatus, edge, nNodes, nEdges, K);
-//	fclose(fNodes);
-//	fclose(fEdges);
+	FILE *fVacc;
+	fVacc = fopen("vaccSummary.dat", "w");
+	fprintf(fVacc, "#Goal?\tfullVacc\tinfecD1\tinfecD2\n");
+	int noVacc, vaccD2, infecD1, infecD2;
+	noVacc = 0;
+	vaccD2 = 0;
+	infecD1 = 0;
+	infecD2 = 0;
+	for (nn=0; nn<nNodes; nn++)
+	{
+		auxInt = vaccStatus[nn];
+		if (auxInt == 0) noVacc++;
+		if (auxInt == 2) vaccD2++;
+		if (auxInt == -1) infecD1++;
+		if (auxInt == -2) infecD2++;
+	}
+	vaccGoal = vaccNodesFrac*nNodes;
+	if (vaccGoal > nNodes - noVacc) fprintf(fVacc, "0\t");
+	else fprintf(fVacc, "1\t");
+	fprintf(fVacc, "%d\t%d\t%d\n", vaccD2, infecD1, infecD2);
+	fclose(fVacc);
 
 	free(nodeStatus);
 	free(nodeInfec);
 	free(expTimeNode);
 	free(infecTimeNode);
+	free(vaccStatus);
+	free(vaccTime);
+	free(vaccOrder);
 	free(edge);
+	free(edgeLD);
 
 	exit (0);
 }
