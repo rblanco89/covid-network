@@ -3,7 +3,7 @@ LIBS = -lm
 CC = $(COMPILER) 
 OBJS = mainNetwork.o
 
-network : $(OBJS)
+simNetwork : $(OBJS)
 	$(CC) $^ -o $@ $(LIBS)
 
 %.o : %.cpp

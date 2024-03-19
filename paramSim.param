@@ -2,16 +2,22 @@
 0				# Network model (0: Watts-Strogatz or Erdos-Renyi; 1: Barabasi-Albert)
 24				# Average degree of nodes (even number)
 1.0				# Probability of rewired (<1: WS; 1: ER)
-1				# Initial infected nodes 
-0.5				# Prob. to restrict an edge during the LD (if 0 only conserve neighbours)
-7				# Start of lockdown (days in a row with an increase in new cases) 
-0				# End of lockdown (days)
-0				# Days of alternation in lockdown
+1				# Initial infected nodes
 220				# Introduction of the variant 2 (days)
-0.5				# Probability of developing infection
+0.2				# Probability of developing infection
 0.022				# Probability of infecting with variant 1 
 0.025				# Probability of infecting with variant 2 
-0.0				# Fraction of vaccinated nodes (goal) 
-0.05				# Fraction of vaccinates nodes (goal) per day
-1825				# Maximum number of days to simulate 
-11856				# Seed (random numbers)
+1000				# Maximum number of days to simulate 
+12345				# Seed (random numbers)
+
+# Lockdown
+0				# Activate lockdown? (0: No, 1: Yes)
+0.5				# Prob. to restrict a random edge during the LD (0.0 -> only conserve local contacts)
+7				# Start of lockdown (days in a row with an increase in new cases) 
+30				# End of lockdown (days)
+0				# Days of alternation in lockdown
+
+# Vaccination
+0				# Activate vaccination? (0: No, 1: Yes)
+0				# Fraction of vaccinated nodes (goal) 
+0.10				# Fraction of vaccinates nodes per day (<= goal)
