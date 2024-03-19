@@ -521,7 +521,6 @@ int main()
 	short flagLockdown, flagVariant2, switchLD, count, flagThresholdI;
 	int time, timeLD;
 	float auxF;
-	int totInfec;
 
 	flagThresholdI = 0;
 	flagVariant2 = 0;
@@ -530,7 +529,8 @@ int main()
 	count = 0;
 	time = 0;
 	timeLD = 0;
-	totInfec = initInfec;
+	int sumI = 0;
+        int sumI2 = 0;
 
 	while (1)
 	{
@@ -544,6 +544,8 @@ int main()
 		// Print new cases
 		fprintf(fNewCases, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
 				time, newE, newI, newR, newE2, newI2, newR2, flagVacc);
+		sumI += newI;
+                sumI2 += newI2;
 
 		time++;
 
@@ -808,7 +810,6 @@ int main()
                         }
 
 		}
-		totInfec += newI;
 	}
 
 	fclose(fNetStatus);
@@ -836,10 +837,12 @@ int main()
         fprintf(fVacc, "%d\t%d\t%d\n", vaccD2, infecD1, infecD2);
         fclose(fVacc);
 
-	FILE *fInf;
-	fInf = fopen("totalInfec.dat", "w");
-	fprintf(fInf, "%d", totInfec);
-	fclose(fInf);
+	FILE *fSum;
+        fSum = fopen("totalInfec.dat", "w");
+        fprintf(fSum, "#Tot\tTot_I1\tTot_I2\n");
+        fprintf(fSum, "%d\t%d\t%d\n", sumI+sumI2, sumI, sumI2);
+        fclose(fSum);
+
 
 	free(nodeStatus);
 	free(nodeInfec);
