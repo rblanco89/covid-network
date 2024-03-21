@@ -19,5 +19,6 @@
 
 # Vaccination
 0				# Activate vaccination? (0: No, 1: Yes)
-0				# Fraction of vaccinated nodes (goal) 
-0.10				# Fraction of vaccinates nodes per day (<= goal)
+0				# Order by degree? (0: No (Random), 1: Yes)
+0				# Initial vaccinated nodes 
+0.10				# Fraction of vaccinates nodes per day

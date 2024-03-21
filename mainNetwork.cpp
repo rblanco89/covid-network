@@ -225,9 +225,10 @@ int main()
 	//===| PARAMETERS |===//
 	short err_flag = 0;
 	long seed;
-	int netModel, aveD, initInfec, ldStart, ldEnd, interval, variant2Intro, maxDays, flagActLD, flagActVacc;
+	int netModel, aveD, initInfec, ldStart, ldEnd, interval, variant2Intro, maxDays,
+	    flagActLD, flagActVacc, flagOrderDegree, initialVaccNodes;
 	float xNodes, betaWS;
-	float probRandomLD, probInfec1, probInfec2, probDevInfec, vaccNodesFrac, vaccPerDayFrac;
+	float probRandomLD, probInfec1, probInfec2, probDevInfec, vaccPerDayFrac;
 	char renglon[200];
 
 	// Number of nodes
@@ -306,9 +307,13 @@ int main()
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &flagActVacc);
 
-	// Fraction of vaccinated nodes
+	// Order by degree?
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%f", &vaccNodesFrac);
+	else sscanf(renglon, "%d", &flagOrderDegree);
+
+	// Initial vaccinated nodes
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%d", &initialVaccNodes);
 
 	// Fraction of vaccinated nodes per day
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
@@ -496,26 +501,32 @@ int main()
 
 	// Vaccination order
 	vaccOrder = (int*) malloc(nNodes*sizeof(int));
-	for (ii=0; ii<nNodes; ii++) vaccOrder[ii] = ii; // Initial order
+	for (ii=0; ii<nNodes; ii++) vaccOrder[ii] = ii;
 
-	// Order by node degree 
-	//quickSort(vaccOrder, nodeDegree, nNodes);
-	//auxInt = vaccNodesFrac*nNodes;
-	//for (ii=0; ii<auxInt; ii++) vaccStatus[vaccOrder[ii]] = 1; // Initial order
+	// Order by node degree
+	if (flagOrderDegree)
+	{
+		quickSort(vaccOrder, nodeDegree, nNodes);
+	}									 
+	else
+	{
+		// Shuffles the indexes of the nodes (random order)
+		for (ii=0; ii<nNodes; ii++)
+		{
+			jj = ranUni.int32()%(ii+1);
+			if (jj == ii) continue;
+			swap(vaccOrder[ii],vaccOrder[jj]);
+		}
+	}
 
-	// Shuffles the indexes of the nodes (random order) 
-	//for (ii=0; ii<nNodes; ii++)
-	//{
-	//	jj = ranUni.int32()%(ii+1);
-	//	if (jj == ii) continue;
-	//	swap(vaccOrder[ii],vaccOrder[jj]);
-	//}
+	// Initial vaccinated nodes
+	for (ii=0; ii<initialVaccNodes; ii++) vaccStatus[vaccOrder[ii]] = 1;
 
 	idxV = 0;
 	flagVacc = 0;
 	ineff1 = 0.35;
 	ineff2 = 0.05;
-	vaccGoal = vaccNodesFrac*nNodes;
+	vaccGoal = nNodes;
 	vaccPerDay = vaccPerDayFrac*vaccGoal;
 
 	short flagLockdown, flagVariant2, switchLD, count, flagThresholdI;
@@ -587,6 +598,7 @@ int main()
                 	}
 
                         if (!flagVacc) flagVacc = 1; // Activate vaccination
+			if (vaccPerDay == 0.0) flagVacc = 2; // Deactivate vaccination
 		}
 
 		newE = 0;
@@ -831,8 +843,8 @@ int main()
                 if (auxInt == -1) infecD1++;
                 if (auxInt == -2) infecD2++;
         }
-        vaccGoal = vaccNodesFrac*nNodes;
-        if (vaccGoal > nNodes - noVacc) fprintf(fVacc, "0\t");
+        vaccGoal = nNodes;
+        if (vaccGoal > nNodes - noVacc - 1) fprintf(fVacc, "0\t");
         else fprintf(fVacc, "1\t");
         fprintf(fVacc, "%d\t%d\t%d\n", vaccD2, infecD1, infecD2);
         fclose(fVacc);
