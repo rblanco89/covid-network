@@ -226,9 +226,9 @@ int main()
 	short err_flag = 0;
 	long seed;
 	int netModel, aveD, initInfec, ldStart, ldEnd, interval, variant2Intro, maxDays,
-	    flagActLD, flagActVacc, flagOrderDegree, initialVaccNodes;
+	    flagActLD, flagActVacc, flagOrderDegree;
 	float xNodes, betaWS;
-	float probRandomLD, probInfec1, probInfec2, probDevInfec, vaccPerDayFrac;
+	float probRandomLD, probInfec1, probInfec2, probDevInfec, vaccFrac, vaccPerDayFrac;
 	char renglon[200];
 
 	// Number of nodes
@@ -311,11 +311,11 @@ int main()
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &flagOrderDegree);
 
-	// Initial vaccinated nodes
+	// Fraction of population to vaccinate
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%d", &initialVaccNodes);
+	else sscanf(renglon, "%f", &vaccFrac);
 
-	// Fraction of vaccinated nodes per day
+	// Fraction of population to vaccinate per day
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%f", &vaccPerDayFrac);
 
@@ -505,9 +505,7 @@ int main()
 
 	// Order by node degree
 	if (flagOrderDegree)
-	{
 		quickSort(vaccOrder, nodeDegree, nNodes);
-	}									 
 	else
 	{
 		// Shuffles the indexes of the nodes (random order)
@@ -520,13 +518,13 @@ int main()
 	}
 
 	// Initial vaccinated nodes
-	for (ii=0; ii<initialVaccNodes; ii++) vaccStatus[vaccOrder[ii]] = 1;
+	//for (ii=0; ii<initialVaccNodes; ii++) vaccStatus[vaccOrder[ii]] = 1;
 
 	idxV = 0;
 	flagVacc = 0;
 	ineff1 = 0.35;
 	ineff2 = 0.05;
-	vaccGoal = nNodes;
+	vaccGoal = vaccFrac*nNodes;
 	vaccPerDay = vaccPerDayFrac*vaccGoal;
 
 	short flagLockdown, flagVariant2, switchLD, count, flagThresholdI;
@@ -843,8 +841,8 @@ int main()
                 if (auxInt == -1) infecD1++;
                 if (auxInt == -2) infecD2++;
         }
-        vaccGoal = nNodes;
-        if (vaccGoal > nNodes - noVacc - 1) fprintf(fVacc, "0\t");
+        vaccGoal = vaccFrac*nNodes;
+        if (vaccGoal > nNodes - noVacc) fprintf(fVacc, "0\t");
         else fprintf(fVacc, "1\t");
         fprintf(fVacc, "%d\t%d\t%d\n", vaccD2, infecD1, infecD2);
         fclose(fVacc);
