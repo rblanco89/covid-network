@@ -517,15 +517,15 @@ int main()
 		}
 	}
 
-	// Initial vaccinated nodes
-	//for (ii=0; ii<initialVaccNodes; ii++) vaccStatus[vaccOrder[ii]] = 1;
-
 	idxV = 0;
 	flagVacc = 0;
 	ineff1 = 0.35;
 	ineff2 = 0.05;
 	vaccGoal = vaccFrac*nNodes;
 	vaccPerDay = vaccPerDayFrac*vaccGoal;
+
+	// Initial vaccinated nodes
+	for (ii=0; ii<vaccGoal; ii++) vaccStatus[vaccOrder[ii]] = 1;
 
 	short flagLockdown, flagVariant2, switchLD, count, flagThresholdI;
 	int time, timeLD;
