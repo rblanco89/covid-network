@@ -226,7 +226,7 @@ int main()
 	short err_flag = 0;
 	long seed;
 	int netModel, aveD, initInfec, ldStart, ldEnd, interval, variant2Intro, maxDays,
-	    flagActLD, flagActVacc, flagOrderDegree;
+	    flagActLD, flagActVacc, flagOrderDegree, vaccStart;
 	float xNodes, betaWS;
 	float probRandomLD, probInfec1, probInfec2, probDevInfec, vaccFrac, vaccPerDayFrac;
 	char renglon[200];
@@ -310,6 +310,10 @@ int main()
 	// Order by degree?
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
 	else sscanf(renglon, "%d", &flagOrderDegree);
+
+	// Start of vaccination
+	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
+	else sscanf(renglon, "%d", &vaccStart);
 
 	// Fraction of population to vaccinate
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
@@ -525,13 +529,12 @@ int main()
 	vaccPerDay = vaccPerDayFrac*vaccGoal;
 
 	// Initial vaccinated nodes
-	for (ii=0; ii<vaccGoal; ii++) vaccStatus[vaccOrder[ii]] = 1;
+	//for (ii=0; ii<vaccGoal; ii++) vaccStatus[vaccOrder[ii]] = 1;
 
-	short flagLockdown, flagVariant2, switchLD, count, flagThresholdI;
+	short flagLockdown, flagVariant2, switchLD, count;
 	int time, timeLD;
 	float auxF;
 
-	flagThresholdI = 0;
 	flagVariant2 = 0;
 	flagLockdown = 0;
 	switchLD = 0;
@@ -558,45 +561,49 @@ int main()
 
 		time++;
 
-		if (flagActLD || flagActVacc) if (!flagThresholdI)
+		if (flagActLD) if (!flagLockdown)
                 {
                         if (newI + newI2 > oldI) daysNewI++;
                         else daysNewI = 0;
                         oldI = newI + newI2;
-                        if (daysNewI > ldStart) flagThresholdI = 1;
+                        if (daysNewI > ldStart)
+			{
+				flagLockdown = 1; // Activate lockdown once
+                                switchLD = 1;
+			}
 		}
 
-		if (flagThresholdI)
-		{
-			if (flagLockdown == 0)
+                if (flagLockdown == 1)
+                {
+                	if (interval > 0)
                 	{
-                		flagLockdown = 1; // Activate lockdown once
-                        	switchLD = 1;
-                	}
-
-                	if (flagLockdown == 1)
-                	{
-                        	if (interval > 0)
+                        	count++;
+                        	if (count > interval)
                         	{
-                                	count++;
-                                	if (count > interval)
-                                	{
-                                        	count = 0;
-                                        	if (switchLD) switchLD = 0;
-                                        	else switchLD = 1;
-                                	}
+                                       	count = 0;
+                                       	if (switchLD) switchLD = 0;
+               	                	else switchLD = 1;
                         	}
+                        }
 
-                        	timeLD++;
-                       		if (timeLD > ldEnd)
-                        	{
-                                	flagLockdown = 2;
-                                	switchLD = 0;
-                        	}
-                	}
+                        timeLD++;
+                       	if (timeLD > ldEnd)
+                        {
+                        	flagLockdown = 2;
+                        	switchLD = 0;
+                        }
+                }
 
-                        if (!flagVacc) flagVacc = 1; // Activate vaccination
-			if (vaccPerDay == 0.0) flagVacc = 2; // Deactivate vaccination
+		if (flagActVacc) if (!flagVacc)
+                {
+                        if (newI + newI2 > oldI) daysNewI++;
+                        else daysNewI = 0;
+                        oldI = newI + newI2;
+                        if (daysNewI > vaccStart)
+			{
+                        	flagVacc = 1; // Activate vaccination
+				if (vaccPerDay == 0) flagVacc = 2; // Deactivate vaccination
+			}
 		}
 
 		newE = 0;

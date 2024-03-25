@@ -20,5 +20,6 @@
 # Vaccination
 0				# Activate vaccination? (0: No, 1: Yes)
 0				# Order by degree? (0: No (Random), 1: Yes)
+7				# Start of vaccination (days in a row with an increase in new cases) 
 0				# Population fraction to vaccinate (goal) 
 0.10				# Population fraction to vaccinate per day (<= goal)
