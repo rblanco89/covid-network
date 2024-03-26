@@ -486,6 +486,7 @@ int main()
 	{
 		auxInt = ranUni.int32()%nNodes;
 		while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
+		//nodeStatus[auxInt] = 1; // Exposed
 		nodeStatus[auxInt] = 2; // Infected
 		nSuscep--;
 		nInfec++;
@@ -651,7 +652,8 @@ int main()
                         {
                                 auxInt = ranUni.int32()%nNodes;
                                 while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
-                                nodeStatus[auxInt] = -2; // Infected 2
+                                nodeStatus[auxInt] = -2; // Infected -2
+                                //nodeStatus[auxInt] = -1; // Exposed -1
                                 nSuscep--;
                                 nInfec2++;
                                 newI2++;
@@ -677,21 +679,21 @@ int main()
 				if (auxInt == 1) auxF = ineff1; // Vaccinated with one dose 
 				if (auxInt == 2) auxF = ineff2; // Vaccinated with two doses 
 
-				//if (jjStatus == 2 || jjStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
-				if (jjStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
+				//if (jjStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
+				if (jjStatus == 2 || jjStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
 				{
 					nodeInfec[ii] = 1;
 					if (auxInt == 1) vaccStatus[ii] = -1;
 					if (auxInt == 2) vaccStatus[ii] = -2;
 				}
-				//if (jjStatus == -2 || jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
-				if (jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
+				//if (jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
+				if (jjStatus == -2 || jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
 			}
 
 			if (iiStatus == 3) // Removed 1
                         {
-                                //if (jjStatus == -2 || jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
-                                if (jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
+                                //if (jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
+                                if (jjStatus == -2 || jjStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
                         }
 
 			if (jjStatus == 0) // Susceptible
@@ -701,15 +703,15 @@ int main()
 				if (auxInt == 1) auxF = ineff1; // Vaccinated with one dose 
 				if (auxInt == 2) auxF = ineff2; // Vaccinated with two doses 
 
-				//if (iiStatus == 2 || iiStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
-				if (iiStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
+				//if (iiStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
+				if (iiStatus == 2 || iiStatus == 1) if (ranUni.doub() <= auxF*probInfec1)
 				{
 					nodeInfec[jj] = 1;
 					if (auxInt == 1) vaccStatus[jj] = -1;
 					if (auxInt == 2) vaccStatus[jj] = -2;
 				}
-				//if (iiStatus == -2 || iiStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[jj] = -1;
-				if (iiStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[jj] = -1;
+				//if (iiStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[jj] = -1;
+				if (iiStatus == -2 || iiStatus == -1) if (ranUni.doub() <= probInfec2) nodeInfec[jj] = -1;
 			}
 
 			if (jjStatus == 3) // Removed 1
