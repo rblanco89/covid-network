@@ -532,7 +532,7 @@ int main()
 	// Initial vaccinated nodes
 	//for (ii=0; ii<vaccGoal; ii++) vaccStatus[vaccOrder[ii]] = 1;
 
-	short flagLockdown, flagVariant2, switchLD, count;
+	short flagLockdown, flagVariant2, switchLD, count, countV;
 	int time, timeLD;
 	float auxF;
 
@@ -540,6 +540,7 @@ int main()
 	flagLockdown = 0;
 	switchLD = 0;
 	count = 0;
+	countV = 0;
 	time = 0;
 	timeLD = 0;
 	int sumI = 0;
@@ -603,8 +604,14 @@ int main()
                         if (daysNewI > vaccStart)
 			{
                         	flagVacc = 1; // Activate vaccination
-				if (vaccPerDay == 0) flagVacc = 2; // Deactivate vaccination
+				if (vaccPerDay == 0) flagVacc = 3; // Deactivate vaccination
 			}
+		}
+
+		if (flagVacc == 1)
+		{
+			countV++;
+			if (countV == 7) flagVacc == 2;
 		}
 
 		newE = 0;
@@ -625,7 +632,7 @@ int main()
 		if (time > maxDays) break;
 
 		// Vaccinates Susceptible nodes
-                if (flagVacc == 1)
+                if (flagVacc == 2)
                 {
                         nn = 0;
                         while (nn<vaccPerDay)
@@ -640,8 +647,8 @@ int main()
                                 vaccGoal--;
                                 if (vaccGoal == 0) break;
                         }
-                        if (vaccGoal == 0) flagVacc = 2;
-                        if (idxV == nNodes) flagVacc = 2;
+                        if (vaccGoal == 0) flagVacc = 3;
+                        if (idxV == nNodes) flagVacc = 3;
                 }
 
                 // Finds a Susceptible (0) node and infects it with variant 2
