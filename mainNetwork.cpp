@@ -611,7 +611,7 @@ int main()
 		if (flagVacc == 1)
 		{
 			countV++;
-			if (countV == 7) flagVacc == 2;
+			if (countV == 7) flagVacc = 2;
 		}
 
 		newE = 0;
