@@ -7,12 +7,13 @@
 0.2				# Probability of developing infection
 0.022				# Probability of infecting with variant 1 
 0.025				# Probability of infecting with variant 2 
+1				# Number of simulations (replicates) 
 1000				# Maximum number of days to simulate 
 12345				# Seed (random numbers)
 
 # Lockdown
 0				# Activate lockdown? (0: No, 1: Yes)
-0.5				# Prob. to restrict a random edge during the LD (0.0 -> only conserve local contacts)
+0.5				# Prob. to restrict a random edge during the LD (0.0 -> only conserve local contacts for WS network)
 7				# Start of lockdown (days in a row with an increase in new cases) 
 30				# End of lockdown (days)
 0				# Days of alternation in lockdown
@@ -20,6 +21,9 @@
 # Vaccination
 0				# Activate vaccination? (0: No, 1: Yes)
 0				# Order by degree? (0: No (Random), 1: Yes)
+0				# Activate vaccination from the beginning? (0: No, 1: Yes)
 7				# Start of vaccination (days in a row with an increase in new cases) 
 0				# Population fraction to vaccinate (goal) 
 0.10				# Population fraction to vaccinate per day (<= goal)
+0.65				# One-dose vaccine efficacy against variant 1
+0.90				# Two-dose vaccine efficacy against variant 1
