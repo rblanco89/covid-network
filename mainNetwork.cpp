@@ -4,6 +4,14 @@
 #include <string.h>
 #include "ranNumbers.h"
 
+struct params
+{
+	float probInfec1;
+	float probInfec2;
+	float 1d_ineff;
+	float 2d_ineff;
+};
+
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- FUNCTIONS =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
 
 void genWSnet(int *edge, int *nodeDegree, int nEdges,
@@ -219,6 +227,60 @@ void quickSort(int *arrIdx, int *arrKey, int size)
 }
 
 //---------------------------------------------------------------------------------//
+
+void (short *nodeInfec, int ii, int iiStatus, int jjStatus, struct params pars, Ran &ranUni)
+{
+	short flagS;
+	float prob, p1, p2, 1d_ineff, 2d_ineff;
+
+	p1 = pars.probInfec1;
+	p2 = pars.probInfec2;
+	1d_ineff = pars.1d_ineff;
+	2d_ineff = pars.2d_ineff;
+
+	switch (iiStatus)
+	{
+		case 0:// Susceptible
+		case 10:// Recently vaccinated
+			flagS = 1;
+			if (jjStatus == 2 or jjStatus == 3)
+				prob = p1;
+			if (jjStatus == -2 or jjStatus == -3)
+				prob = p2;
+			break;
+
+		case 11:// One-dose vaccinated
+			flagS = 1;
+			if (jjStatus == 2 or jjStatus == 3)
+				prob = 1d_ineff*p1;
+			if (jjStatus == -2 or jjStatus == -3)
+				prob = 1d_ineff*p2;
+			break;
+
+		case 12:// Two-dose vaccinated
+			flagS = 1;
+			if (jjStatus == 2 or jjStatus == 3)
+				prob = 2d_ineff*p1;
+			if (jjStatus == -2 or jjStatus == -3)
+				prob = 2d_ineff*p2;
+			break;
+
+		case 4:// Removed 1
+			flagS = 1;
+			if (jjStatus == -2 or jjStatus == -3)
+				prob = p2;
+			break;
+
+		default:
+			flagS = 0;
+			break;
+    	}
+
+        if (flagS) if (ranUni.doub() <= prob) nodeInfec[ii] = 1;
+
+	return;
+}
+
 void epiSimulation(int *newI_vec, short *nodeStatus, short *nodeInfec,
                 int *expTimeNode, int *infecTimeNode,
                 int K, float probInfec, float probDevInfec, float probRandomLD,
@@ -407,24 +469,35 @@ void epiSimulation(int *newI_vec, short *nodeStatus, short *nodeInfec,
 
 			switch (iiStatus)
 			{
-				case 0:
+				case 0:// Susceptible
+				case 10:// Recently vaccinated
 					flagS = 1;
-					prob = probInfec1;
+					if (jjStatus == 2 or jjStatus == 3)
+						prob = probInfec1;
+					if (jjStatus == -2 or jjStatus == -3)
+						prob = probInfec2;
 					break;
 
-				case 10:
+				case 11:// One-dose vaccinated
 					flagS = 1;
-					prob = probInfec1;
+					if (jjStatus == 2 or jjStatus == 3)
+						prob = 1d_ineff*probInfec1;
+					if (jjStatus == -2 or jjStatus == -3)
+						prob = 1d_ineff*probInfec2;
 					break;
 
-				case 11:
+				case 12:// Two-dose vaccinated
 					flagS = 1;
-					prob = 1d_ineff*probInfec1;
+					if (jjStatus == 2 or jjStatus == 3)
+						prob = 2d_ineff*probInfec1;
+					if (jjStatus == -2 or jjStatus == -3)
+						prob = 2d_ineff*probInfec2;
 					break;
 
-				case 12:
+				case 4:// Removed 1
 					flagS = 1;
-					prob = 2d_ineff*probInfec1;
+					if (jjStatus == -2 or jjStatus == -3)
+						prob = probInfec2;
 					break;
 
 				default:
@@ -432,54 +505,48 @@ void epiSimulation(int *newI_vec, short *nodeStatus, short *nodeInfec,
 					break;
     			}
 
-                        if (flagS) // Susceptible
-                        {
-				// Variant 1
-                                if (jjStatus == 2 or jjStatus == 3) 
-                                {
-                                        if (ranUni.doub() <= prob) nodeInfec[ii] = 1;
-                                }
-				
-				// Variant 2
-                                if (jjStatus == -2 || jjStatus == -3)
-				{
-					if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
-				}
-                        }
+                        if (flagS) if (ranUni.doub() <= prob) nodeInfec[ii] = 1;
 
-                        if (iiStatus == 4) // Removed 1
-                        {
-                                if (jjStatus == -2 || jjStatus == -3) if (ranUni.doub() <= probInfec2) nodeInfec[ii] = -1;
-                        }
 
-			flagS = 0;
+			switch (jjStatus)
+			{
+				case 0:// Susceptible
+				case 10:// Recently vaccinated
+					flagS = 1;
+					if (iiStatus == 2 or iiStatus == 3)
+						prob = probInfec1;
+					if (iiStatus == -2 or iiStatus == -3)
+						prob = probInfec2;
+					break;
 
-                        if (jjStatus == 0) // Susceptible
-                        {
-                                auxInt = vaccStatus[jj];
+				case 11:// One-dose vaccinated
+					flagS = 1;
+					if (iiStatus == 2 or iiStatus == 3)
+						prob = 1d_ineff*probInfec1;
+					if (iiStatus == -2 or iiStatus == -3)
+						prob = 1d_ineff*probInfec2;
+					break;
 
-				// Variant 1
-                                if (iiStatus == 2 or iiStatus == 3) 
-                                {
-                                	if (auxInt == 1) auxF = ineff1; // Vaccinated with one dose
-					else if (auxInt == 2) auxF = ineff2; // Vaccinated with two doses
-					else auxF = 1.0;
+				case 12:// Two-dose vaccinated
+					flagS = 1;
+					if (iiStatus == 2 or iiStatus == 3)
+						prob = 2d_ineff*probInfec1;
+					if (iiStatus == -2 or iiStatus == -3)
+						prob = 2d_ineff*probInfec2;
+					break;
 
-                                        if (ranUni.doub() <= auxF*probInfec1) nodeInfec[jj] = 1;
-                                }
+				case 4:// Removed 1
+					flagS = 1;
+					if (iiStatus == -2 or iiStatus == -3)
+						prob = probInfec2;
+					break;
 
-				// Variant 2
-                                if (iiStatus == -2 || iiStatus == -3)
-				{
-					if (ranUni.doub() <= probInfec2) nodeInfec[jj] = -1;
-				}
-                        }
+				default:
+					flagS = 0;
+					break;
+    			}
 
-                        if (jjStatus == 3) // Removed 1
-                        {
-                                if (iiStatus == -2) if (ranUni.doub() <= probInfec2) nodeInfec[jj] = -1;
-                        }
-
+                        if (flagS) if (ranUni.doub() <= prob) nodeInfec[jj] = 1;
                 }
 
                 // Update states
