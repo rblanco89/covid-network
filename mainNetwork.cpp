@@ -228,9 +228,10 @@ void quickSort(int *arrIdx, int *arrKey, int size)
 
 //---------------------------------------------------------------------------------//
 
-void (short *nodeInfec, int ii, int iiStatus, int jjStatus, struct params pars, Ran &ranUni)
+void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
+		struct params pars, Ran &ranUni)
 {
-	short flagS;
+	short variant;
 	float prob, p1, p2, 1d_ineff, 2d_ineff;
 
 	p1 = pars.probInfec1;
@@ -242,44 +243,63 @@ void (short *nodeInfec, int ii, int iiStatus, int jjStatus, struct params pars, 
 	{
 		case 0:// Susceptible
 		case 10:// Recently vaccinated
-			flagS = 1;
 			if (jjStatus == 2 or jjStatus == 3)
+			{
 				prob = p1;
+				variant = 1;
+			}
 			if (jjStatus == -2 or jjStatus == -3)
+			{
 				prob = p2;
+				variant = -1;
+			}
 			break;
 
 		case 11:// One-dose vaccinated
-			flagS = 1;
 			if (jjStatus == 2 or jjStatus == 3)
+			{
 				prob = 1d_ineff*p1;
+				variant = 1;
+			}
 			if (jjStatus == -2 or jjStatus == -3)
+			{
 				prob = 1d_ineff*p2;
+				variant = -1;
+			}
 			break;
 
 		case 12:// Two-dose vaccinated
-			flagS = 1;
 			if (jjStatus == 2 or jjStatus == 3)
+			{
 				prob = 2d_ineff*p1;
+				variant = 1;
+			}
 			if (jjStatus == -2 or jjStatus == -3)
+			{
 				prob = 2d_ineff*p2;
+				variant = -1;
+			}
 			break;
 
 		case 4:// Removed 1
-			flagS = 1;
 			if (jjStatus == -2 or jjStatus == -3)
+			{
 				prob = p2;
+				variant = -1;
+			}
 			break;
 
 		default:
-			flagS = 0;
+			variant = 0;
 			break;
     	}
 
-        if (flagS) if (ranUni.doub() <= prob) nodeInfec[ii] = 1;
+        if (variant) if (ranUni.doub() <= prob) nodeInfec[ii] = variant;
 
 	return;
 }
+
+//---------------------------------------------------------------------------------//
 
 void epiSimulation(int *newI_vec, short *nodeStatus, short *nodeInfec,
                 int *expTimeNode, int *infecTimeNode,
@@ -467,198 +487,140 @@ void epiSimulation(int *newI_vec, short *nodeStatus, short *nodeInfec,
                         iiStatus = nodeStatus[ii];
                         jjStatus = nodeStatus[jj];
 
-			switch (iiStatus)
-			{
-				case 0:// Susceptible
-				case 10:// Recently vaccinated
-					flagS = 1;
-					if (jjStatus == 2 or jjStatus == 3)
-						prob = probInfec1;
-					if (jjStatus == -2 or jjStatus == -3)
-						prob = probInfec2;
-					break;
-
-				case 11:// One-dose vaccinated
-					flagS = 1;
-					if (jjStatus == 2 or jjStatus == 3)
-						prob = 1d_ineff*probInfec1;
-					if (jjStatus == -2 or jjStatus == -3)
-						prob = 1d_ineff*probInfec2;
-					break;
-
-				case 12:// Two-dose vaccinated
-					flagS = 1;
-					if (jjStatus == 2 or jjStatus == 3)
-						prob = 2d_ineff*probInfec1;
-					if (jjStatus == -2 or jjStatus == -3)
-						prob = 2d_ineff*probInfec2;
-					break;
-
-				case 4:// Removed 1
-					flagS = 1;
-					if (jjStatus == -2 or jjStatus == -3)
-						prob = probInfec2;
-					break;
-
-				default:
-					flagS = 0;
-					break;
-    			}
-
-                        if (flagS) if (ranUni.doub() <= prob) nodeInfec[ii] = 1;
-
-
-			switch (jjStatus)
-			{
-				case 0:// Susceptible
-				case 10:// Recently vaccinated
-					flagS = 1;
-					if (iiStatus == 2 or iiStatus == 3)
-						prob = probInfec1;
-					if (iiStatus == -2 or iiStatus == -3)
-						prob = probInfec2;
-					break;
-
-				case 11:// One-dose vaccinated
-					flagS = 1;
-					if (iiStatus == 2 or iiStatus == 3)
-						prob = 1d_ineff*probInfec1;
-					if (iiStatus == -2 or iiStatus == -3)
-						prob = 1d_ineff*probInfec2;
-					break;
-
-				case 12:// Two-dose vaccinated
-					flagS = 1;
-					if (iiStatus == 2 or iiStatus == 3)
-						prob = 2d_ineff*probInfec1;
-					if (iiStatus == -2 or iiStatus == -3)
-						prob = 2d_ineff*probInfec2;
-					break;
-
-				case 4:// Removed 1
-					flagS = 1;
-					if (iiStatus == -2 or iiStatus == -3)
-						prob = probInfec2;
-					break;
-
-				default:
-					flagS = 0;
-					break;
-    			}
-
-                        if (flagS) if (ranUni.doub() <= prob) nodeInfec[jj] = 1;
+			// check ii with jj
+			transmission(nodeInfec, ii, iiStatus, jjStatus, pars, ranUni);
+			// check jj with ii
+			transmission(nodeInfec, jj, jjStatus, iiStatus, pars, ranUni);
                 }
 
                 // Update states
                 for (ii=0; ii<nNodes; ii++)
                 {
+                        iiStatus = nodeStatus[ii];
+
+			switch (iiStatus)
+			{
+				case 0: // Susceptible
+					if (nodeInfec[ii] == 1)
+					{
+						nodeStatus[ii] = 1;
+						nExpo++;
+						newE++;
+					}
+					if (nodeInfec[ii] == -1)
+					{
+						nodeStatus[ii] = -1;
+						nExpo2++;
+						newE2++;
+					}
+					nodeInfec[ii] = 0;
+					break;
+
+                        	case 1: // Exposed 1
+                                	expTimeNode[ii]--;
+                                	if (expTimeNode[ii] > 0) break;
+                                	if (ranUni.doub() >= probDevInfec)
+                                	{
+                                        	nodeStatus[ii] = 2; // Asymptomatic
+                                        	nExpo--;
+                                        	nAsymp++;
+                                        	newA++;
+                                	}
+                                	else
+                                	{
+                                        	nodeStatus[ii] = 3; // Infected
+                                        	nExpo--;
+                                        	nInfec++;
+                                        	newI++;
+                                	}
+                                	expTimeNode[ii] = gammaE.dev();
+                                	break;
+
+                        	case -1: // Exposed 2
+                                	expTimeNode[ii]--;
+                                	if (expTimeNode[ii] > 0) continue;
+                                	if (ranUni.doub() <= probDevInfec)
+                                	{
+                                        	nodeStatus[ii] = -2; // Asymptomatic 2
+                                        	nExpo2--;
+                                        	nAsymp2++;
+                                        	newA2++;
+                                	}
+                                	else
+                                	{
+                                        	nodeStatus[ii] = -3; // Infected 2
+                                        	nExpo2--;
+                                        	nInfec2++;
+                                        	newI2++;
+                                	}
+                                	break;
+
+                        	case 2: // Asymptomatic 1
+                                	infecTimeNode[ii]--;
+                                	if (infecTimeNode[ii] > 0) continue;
+                                	nodeStatus[ii] = 4; // Removed
+                                	nAsymp--;
+                                	infecTimeNode[ii] = gammaI.dev();
+                                	break;
+
+                        	case -2: // Asymptomatic 2
+                                	infecTimeNode[ii]--;
+                                	if (infecTimeNode[ii] > 0) continue;
+                                	nodeStatus[ii] = -4; // Removed
+                                	nAsymp2--;
+                                	break;
+
+                        	case 3: // Infected 1
+                                	infecTimeNode[ii]--;
+                                	if (infecTimeNode[ii] > 0) continue;
+                                	nodeStatus[ii] = 4; // Removed
+                                	nInfec--;
+                                	infecTimeNode[ii] = gammaI.dev();
+                                	break;
+
+                        	case -3: // Infected 2
+                                	infecTimeNode[ii]--;
+                                	if (infecTimeNode[ii] > 0) continue;
+                                	nodeStatus[ii] = -4; // Removed
+                                	nInfec--;
+					break;
+
+                        	case 4: // Removed 1
+                                	if (nodeInfec[ii] == -1)
+                                	{
+                                        	nodeStatus[ii] = -1;
+                                        	nExpo2++;
+                                        	newE2++;
+                                	}
+                                	nodeInfec[ii] = 0;
+                                	break;
+
+				// Aquuuuuuiiiiiiiiiiiiiiiiiii
+				case 10: // recently vaccinated
+                                	if (nodeInfec[ii] == 1)
+                                	{
+                                        	nodeStatus[ii] = 1;
+                                        	nExpo++;
+                                        	newE++;
+                                		nodeInfec[ii] = 0;
+                                	}
+                                	if (nodeInfec[ii] == -1)
+                                	{
+                                        	nodeStatus[ii] = -1;
+                                        	nExpo2++;
+                                        	newE2++;
+                                		nodeInfec[ii] = 0;
+                                	}
+					vaccTime[ii]--;
+					if (vaccTime[ii] == 0) nodeStatus[ii] = 11;
+					break;
+                        }
+
                         // Update status of the vaccination
                         if (vaccStatus[ii] == 1)
                         {
                                 vaccTime[ii]--;
                                 if (vaccTime[ii] == 0) vaccStatus[ii] = 2; // booster
-                        }
-
-                        iiStatus = nodeStatus[ii];
-
-                        if (iiStatus == 0) // Suceptible
-                        {
-                                if (nodeInfec[ii] == 1)
-                                {
-                                        nodeStatus[ii] = 1;
-                                        nSuscep--;
-                                        nExpo++;
-                                        newE++;
-                                }
-
-                                if (nodeInfec[ii] == -1)
-                                {
-                                        nodeStatus[ii] = -1;
-                                        nSuscep--;
-                                        nExpo2++;
-                                        newE2++;
-                                }
-                                nodeInfec[ii] = 0;
-                                continue;
-			}
-
-                        if (iiStatus == 1) // Exposed 1
-                        {
-                                expTimeNode[ii]--;
-                                if (expTimeNode[ii] > 0) continue;
-                                if (ranUni.doub() <= probDevInfec)
-                                {
-                                        nodeStatus[ii] = 2; // Infected
-                                        nExpo--;
-                                        nInfec++;
-                                        newI++;
-                                }
-                                else
-                                {
-                                        nodeStatus[ii] = 3; // Removed
-                                        nExpo--;
-                                        nRem++;
-                                        newR++;
-                                }
-                                expTimeNode[ii] = gammaE.dev();
-                                continue;
-                        }
-
-                        if (iiStatus == -1) // Exposed 2
-                        {
-                                expTimeNode[ii]--;
-                                if (expTimeNode[ii] > 0) continue;
-                                if (ranUni.doub() <= probDevInfec)
-                                {
-                                        nodeStatus[ii] = -2; // Infected 2
-                                        nExpo2--;
-                                        nInfec2++;
-                                        newI2++;
-                                }
-                                else
-                                {
-                                        nodeStatus[ii] = -3; // Removed 2
-                                        nExpo2--;
-                                        nRem2++;
-                                        newR2++;
-                                }
-                                continue;
-                        }
-
-                        if (iiStatus == 2) // Infected 1
-                        {
-                                infecTimeNode[ii]--;
-                                if (infecTimeNode[ii] > 0) continue;
-                                nodeStatus[ii] = 3; // Removed
-                                nInfec--;
-                                nRem++;
-                                newR++;
-                                infecTimeNode[ii] = gammaI.dev();
-                                continue;
-                        }
-
-			if (iiStatus == -2) // Infected 2
-                        {
-                                infecTimeNode[ii]--;
-                                if (infecTimeNode[ii] > 0) continue;
-                                nodeStatus[ii] = -3; // Removed 2
-                                nInfec2--;
-                                nRem2++;
-                                newR2++;
-                                continue;
-                        }
-
-                        if (iiStatus == 3) // Removed 1
-                        {
-                                if (nodeInfec[ii] == -1)
-                                {
-                                        nodeStatus[ii] = -1;
-                                        nRem--;
-                                        nExpo2++;
-                                        newE2++;
-                                }
-                                nodeInfec[ii] = 0;
-                                continue;
                         }
 
                 }
