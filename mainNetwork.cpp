@@ -12,19 +12,20 @@ struct params
 	int K;
 	int initInfec;
 	int variant2Intro;
-	float probDevInfec;
 	int flagActLD;
 	int flagActVacc;
+	int flagInitVacc;
 	int ldStart;
 	int ldEnd;
 	int interval;
 	int vaccStart;
 	int vaccPerDay;
 	int vaccGoal;
+	float probDevInfec;
 	float probInfec1;
 	float probInfec2;
-	float 1d_ineff;
-	float 2d_ineff;
+	float ineff_1d;
+	float ineff_2d;
 };
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- FUNCTIONS =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
@@ -247,12 +248,14 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 		params pars, Ran &ranUni)
 {
 	short variant;
-	float prob, p1, p2, 1d_ineff, 2d_ineff;
+	float prob, p1, p2, ineff_1d, ineff_2d;
 
 	p1 = pars.probInfec1;
 	p2 = pars.probInfec2;
-	1d_ineff = pars.1d_ineff;
-	2d_ineff = pars.2d_ineff;
+	ineff_1d = pars.ineff_1d;
+	ineff_2d = pars.ineff_2d;
+	variant = 0;
+	prob = 0.0;
 
 	switch (iiStatus)
 	{
@@ -273,12 +276,12 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 		case 11:// One-dose vaccinated
 			if (jjStatus == 2 or jjStatus == 3)
 			{
-				prob = 1d_ineff*p1;
+				prob = ineff_1d*p1;
 				variant = 1;
 			}
 			if (jjStatus == -2 or jjStatus == -3)
 			{
-				prob = 1d_ineff*p2;
+				prob = ineff_1d*p2;
 				variant = -1;
 			}
 			break;
@@ -286,12 +289,12 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 		case 12:// Two-dose vaccinated
 			if (jjStatus == 2 or jjStatus == 3)
 			{
-				prob = 2d_ineff*p1;
+				prob = ineff_2d*p1;
 				variant = 1;
 			}
 			if (jjStatus == -2 or jjStatus == -3)
 			{
-				prob = 2d_ineff*p2;
+				prob = ineff_2d*p2;
 				variant = -1;
 			}
 			break;
@@ -303,10 +306,6 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 				variant = -1;
 			}
 			break;
-
-		default:
-			variant = 0;
-			break;
     	}
 
         if (variant) if (ranUni.doub() <= prob) nodeInfec[ii] = variant;
@@ -317,16 +316,17 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 //---------------------------------------------------------------------------------//
 
 void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
-		int *vaccOrder, int *vaccTime, int *expTimeNode, int *infecTimeNode,
-		params pars, Ran &ranUni, GammaDev &gammaE, GammaDev &gammaI)
+		int *vaccOrder, short *vaccTime, short *expTime, short *infecTime,
+		params pars, Ran &ranUni, Gammadev &gammaE, Gammadev &gammaI,
+		int *newI1_vec, int *newI2_vec, int *nInfec1_vec, int *nInfec2_vec)
 {
 	// Status (SEAIR: Susceptible, Exposed, Asymptomatic, Infected, Removed)
         // 0:S, 1:E1, 2:A1, 3:I1, 4:R1, -1:E2, -2:A2, -3:I2, -4:R2
-	int nn;
+	int nn, ee, ii, jj;
         int nContagious;
         int nExpo, nAsymp, nInfec;
         int nExpo2, nAsymp2, nInfec2;
-        int newE, newA, newI, newE2, newA2, newI2, oldI, daysNewI;
+        int newA, newI, newA2, newI2, oldI, daysNewI;
         short iiStatus, jjStatus;
 
         nExpo = 0;
@@ -336,10 +336,8 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
         nAsymp2 = 0;
         nInfec2 = 0;
 
-        newE = 0;
         newA = 0;
         newI = 0;
-        newE2 = 0;
         newA2 = 0;
         newI2 = 0;
         oldI = 0;
@@ -358,25 +356,25 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                 auxInt = ranUni.int32()%nNodes;
                 while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
                 nodeStatus[auxInt] = 3; // Infected
-                nSuscep--;
                 nInfec++;
                 newI++;
         }
-
-        short flagLockdown, flagVariant2, switchLD, flagVacc, count, countV;
-        int time, timeLD, idxV, sumI, sumI2;
-        float auxF;
 
 	int variant2Intro = pars.variant2Intro;
 	float probDevInfec = pars.probDevInfec;
 	int flagActLD = pars.flagActLD;
 	int flagActVacc = pars.flagActVacc;
+	int flagInitVacc = pars.flagInitVacc;
 	int ldStart = pars.ldStart;
 	int ldEnd = pars.ldEnd;
 	int interval = pars.interval;
 	int vaccStart = pars.vaccStart;
 	int vaccPerDay = pars.vaccPerDay;
 	int vaccGoal = pars.vaccGoal;
+
+        short flagLockdown, flagVariant2, switchLD, flagVacc, count, countV;
+        int time, timeLD, idxV;
+        float auxF;
 
         flagVariant2 = 0;
         flagLockdown = 0;
@@ -387,15 +385,17 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
         timeLD = 0;
 	idxV = 0;
         flagVacc = 0;
-        sumI = 0;
-        sumI2 = 0;
+
+	if (flagInitVacc) flagActVacc = 0;
 
         while (1)
         {
                 nContagious = nExpo + nAsymp + nInfec + nExpo2 + nAsymp2 + nInfec2;
 
-                sumI += newI;
-                sumI2 += newI2;
+                newI1_vec[time] = newI;
+                newI2_vec[time] = newI2;
+                nInfec1_vec[time] = nInfec;
+                nInfec2_vec[time] = nInfec2;
 
                 time++;
                 if (time > maxDays) break;
@@ -466,10 +466,8 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                 }
 
 		// Restart counts
-                newE = 0;
                 newA = 0;
 		newI = 0;
-                newE2 = 0;
                 newA2 = 0;
                 newI2 = 0;
 
@@ -496,6 +494,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 
 		
                 // Identifies the suceptible nodes and determine if they will be infected
+        	memset(nodeInfec, 0, nNodes*sizeof(short));
                 for (ee=0; ee<nEdges; ee++)
                 {
                         // Lockdown resriction
@@ -525,44 +524,38 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 					{
 						nodeStatus[ii] = 1;
 						nExpo++;
-						newE++;
 					}
 					if (nodeInfec[ii] == -1)
 					{
 						nodeStatus[ii] = -1;
 						nExpo2++;
-						newE2++;
 					}
-					nodeInfec[ii] = 0;
 					break;
 
 				case 10: // recently vaccinated
 				case 11: // one-dose vaccinated
 				case 12: // two-dose vaccinated
-                                	if (nodeInfec[ii] == 0)
-                                	{
-						vaccTime[ii]--;
-						if (vaccTime[ii] == 14) nodeStatus[ii] = 11;
-						if (vaccTime[ii] == 0) nodeStatus[ii] = 12;
-					}
                                 	if (nodeInfec[ii] == 1)
                                 	{
                                         	nodeStatus[ii] = 1;
                                         	nExpo++;
-                                        	newE++;
+						break;
                                 	}
                                 	if (nodeInfec[ii] == -1)
                                 	{
                                         	nodeStatus[ii] = -1;
                                         	nExpo2++;
-                                        	newE2++;
+						break;
                                 	}
-                                	nodeInfec[ii] = 0;
+                                	if (vaccTime[ii] <= 0) break;
+					vaccTime[ii]--;
+					if (vaccTime[ii] == 14) nodeStatus[ii] = 11;
+					if (vaccTime[ii] == 0) nodeStatus[ii] = 12;
 					break;
 
                         	case 1: // Exposed 1
-                                	expTimeNode[ii]--;
-                                	if (expTimeNode[ii] > 0) break;
+                                	expTime[ii]--;
+                                	if (expTime[ii] > 0) break;
                                 	if (ranUni.doub() >= probDevInfec)
                                 	{
                                         	nodeStatus[ii] = 2; // Asymptomatic
@@ -577,12 +570,12 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                                         	nInfec++;
                                         	newI++;
                                 	}
-                                	expTimeNode[ii] = gammaE.dev();
+                                	expTime[ii] = gammaE.dev();
                                 	break;
 
                         	case -1: // Exposed 2
-                                	expTimeNode[ii]--;
-                                	if (expTimeNode[ii] > 0) continue;
+                                	expTime[ii]--;
+                                	if (expTime[ii] > 0) break;
                                 	if (ranUni.doub() <= probDevInfec)
                                 	{
                                         	nodeStatus[ii] = -2; // Asymptomatic 2
@@ -600,33 +593,33 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                                 	break;
 
                         	case 2: // Asymptomatic 1
-                                	infecTimeNode[ii]--;
-                                	if (infecTimeNode[ii] > 0) continue;
+                                	infecTime[ii]--;
+                                	if (infecTime[ii] > 0) break;
                                 	nodeStatus[ii] = 4; // Removed
                                 	nAsymp--;
-                                	infecTimeNode[ii] = gammaI.dev();
+                                	infecTime[ii] = gammaI.dev();
                                 	break;
 
                         	case -2: // Asymptomatic 2
-                                	infecTimeNode[ii]--;
-                                	if (infecTimeNode[ii] > 0) continue;
-                                	nodeStatus[ii] = -4; // Removed
+                                	infecTime[ii]--;
+                                	if (infecTime[ii] > 0) break;
+                                	nodeStatus[ii] = -4; // Removed 2
                                 	nAsymp2--;
                                 	break;
 
                         	case 3: // Infected 1
-                                	infecTimeNode[ii]--;
-                                	if (infecTimeNode[ii] > 0) continue;
+                                	infecTime[ii]--;
+                                	if (infecTime[ii] > 0) break;
                                 	nodeStatus[ii] = 4; // Removed
                                 	nInfec--;
-                                	infecTimeNode[ii] = gammaI.dev();
+                                	infecTime[ii] = gammaI.dev();
                                 	break;
 
                         	case -3: // Infected 2
-                                	infecTimeNode[ii]--;
-                                	if (infecTimeNode[ii] > 0) continue;
-                                	nodeStatus[ii] = -4; // Removed
-                                	nInfec--;
+                                	infecTime[ii]--;
+                                	if (infecTime[ii] > 0) break;
+                                	nodeStatus[ii] = -4; // Removed 2
+                                	nInfec2--;
 					break;
 
                         	case 4: // Removed 1
@@ -634,9 +627,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                                 	{
                                         	nodeStatus[ii] = -1;
                                         	nExpo2++;
-                                        	newE2++;
                                 	}
-                                	nodeInfec[ii] = 0;
                                 	break;
                         }
 
@@ -658,7 +649,7 @@ int main()
 	    numSims, flagActLD, flagActVacc, flagOrderDegree, flagInitVacc, vaccStart;
 	float xNodes, betaWS;
 	float probRandomLD, probInfec1, probInfec2, probDevInfec, vaccFrac, vaccPerDayFrac;
-	float 1d_vaccEff, 2d_vaccEff;
+	float vaccEff_1d, vaccEff_2d;
 	char renglon[200];
 
 	// Number of nodes
@@ -763,11 +754,11 @@ int main()
 
 	// One-dose vaccine efficacy
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%f", &1d_vaccEff);
+	else sscanf(renglon, "%f", &vaccEff_1d);
 
 	// Two-dose vaccine efficacy
 	if (fgets(renglon, sizeof(renglon), stdin) == NULL) err_flag = 1;
-	else sscanf(renglon, "%f", &2d_vaccEff);
+	else sscanf(renglon, "%f", &vaccEff_2d);
 
 	if (err_flag)
 	{
@@ -779,14 +770,16 @@ int main()
 	Ran ranUni(seed);
 	// In this gamma-distributed random generator a = k, b = 1/theta
 	// Exposed time = 5d +- 1d
-	Gammadev gammaE(25.0,5.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+	//Gammadev gammaE(25.0,5.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+	Gammadev gammaE(9.0,3.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
 	// Infected time = 6d +- 2d
-	Gammadev gammaI(36.0/4.0,6.0/4.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+	//Gammadev gammaI(36.0/4.0,6.0/4.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+	Gammadev gammaI(100.0/9.0,10.0/9.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
 
         int *edge, *edgeLD;
         short *nodeStatus, *nodeInfec;
 	int *nodeDegree;
-        int *expTime, *infecTime;
+        short *expTime, *infecTime;
 
         int nNodes = xNodes;
         int halfNodes = nNodes/2;
@@ -798,16 +791,16 @@ int main()
 	nodeDegree = (int*) malloc(nNodes*sizeof(int));
         nodeStatus = (short*) malloc(nNodes*sizeof(short));
         nodeInfec = (short*) malloc(nNodes*sizeof(short));
-        expTime = (int*) malloc(nNodes*sizeof(int));
-        infecTime = (int*) malloc(nNodes*sizeof(int));
+        expTime = (short*) malloc(nNodes*sizeof(short));
+        infecTime = (short*) malloc(nNodes*sizeof(short));
 
         short *vaccTime;
         int *vaccOrder;
         int vaccGoal, vaccPerDay;
 	
-        float ineff1, ineff2;
-	1d_ineff = 1.0 - 1d_vaccEff;
-	2d_ineff = 1.0 - 2d_vaccEff;
+        float ineff_1d, ineff_2d;
+	ineff_1d = 1.0 - vaccEff_1d;
+	ineff_2d = 1.0 - vaccEff_2d;
 
         vaccTime = (short*) malloc(nNodes*sizeof(short));
         vaccOrder = (int*) malloc(nNodes*sizeof(int));
@@ -815,7 +808,7 @@ int main()
         vaccGoal = vaccFrac*nNodes;
        	vaccPerDay = vaccPerDayFrac*vaccGoal;
 
-	struct params pars;
+	params pars;
 	pars.maxDays = maxDays;
 	pars.nNodes = nNodes;
 	pars.nEdges = nEdges;
@@ -825,6 +818,7 @@ int main()
 	pars.probDevInfec = probDevInfec;
 	pars.flagActLD = flagActLD;
 	pars.flagActVacc = flagActVacc;
+	pars.flagInitVacc = flagInitVacc;
 	pars.ldStart = ldStart;
 	pars.ldEnd = ldEnd;
 	pars.interval = interval;
@@ -833,18 +827,25 @@ int main()
 	pars.vaccGoal = vaccGoal;
 	pars.probInfec1 = probInfec1;
 	pars.probInfec2 = probInfec2;
-	pars.1d_ineff = 1d_ineff;
-	pars.2d_ineff = 2d_ineff;
+	pars.ineff_1d = ineff_1d;
+	pars.ineff_2d = ineff_2d;
 
-	int auxInt, ee, ii, jj, kk, tt, ss, nn;// Change nn and delete kk -------------------------
+	int auxInt, ee, ii, jj, tt, ss;
 	char dirFile[100];
-        FILE *fNewI;
+        FILE *fInfec;
 
         int *newI1_vec, *newI2_vec;
+        int *nInfec1_vec, *nInfec2_vec;
+
         newI1_vec = (int*) malloc(maxDays*sizeof(int));
         newI2_vec = (int*) malloc(maxDays*sizeof(int));
+        nInfec1_vec = (int*) malloc(maxDays*sizeof(int));
+        nInfec2_vec = (int*) malloc(maxDays*sizeof(int));
+
         memset(newI1_vec, 0, maxDays*sizeof(int));
         memset(newI2_vec, 0, maxDays*sizeof(int));
+        memset(nInfec1_vec, 0, maxDays*sizeof(int));
+        memset(nInfec2_vec, 0, maxDays*sizeof(int));
 
 	for (ss=0; ss<numSims; ss++)
 	{
@@ -857,13 +858,12 @@ int main()
         	else // Barabasi-Albert network
                 	genBAnet(edge, nodeDegree, nNodes, K, ranUni);
 
-		memset(nodeStatus, 0, nNodes*sizeof(short)); // All nodes are susceptibles
-		memset(nodeInfec, 0, nNodes*sizeof(short));
+        	memset(nodeStatus, 0, nNodes*sizeof(short)); // All nodes are susceptibles
 
-		for (nn=0; nn<nNodes; nn++) expTime[nn] = gammaE.dev();
-                for (nn=0; nn<nNodes; nn++) infecTime[nn] = gammaI.dev();
+		for (ii=0; ii<nNodes; ii++) expTime[ii] = gammaE.dev();
+                for (ii=0; ii<nNodes; ii++) infecTime[ii] = gammaI.dev();
 
-		//-------- Lockdown --------//
+		//-------- Lockdown set up --------//
 
         	if (flagActLD) for (ee=0; ee<nEdges; ee++)
         	{
@@ -882,15 +882,15 @@ int main()
         	        }
         	}
 
-		//-------- Vaccination --------//
+		//-------- Vaccination set up --------//
 		
 		if (flagActVacc)
 		{
 			// Time between first and second dose
-        		for (nn=0; nn<nNodes; nn++) vaccTime[nn] = 28;
+        		for (ii=0; ii<nNodes; ii++) vaccTime[ii] = 28;
 
         		// Vaccination order by node degree or randomly
-        		for (nn=0; nn<nNodes; ii++) vaccOrder[nn] = nn;
+        		for (ii=0; ii<nNodes; ii++) vaccOrder[ii] = ii;
         		if (flagOrderDegree)
         		        quickSort(vaccOrder, nodeDegree, nNodes);
         		else
@@ -905,34 +905,39 @@ int main()
         		}
         		// Initial vaccinated nodes (10 -> recently vaccinated)
         		if (flagInitVacc)
-			{
 				for (ii=0; ii<vaccGoal; ii++) nodeStatus[vaccOrder[ii]] = 10;
-				flagActVacc = 0;
-			}
 		}
 
-        	memset(nodeStatus, 0, nNodes*sizeof(short)); // All nodes are susceptibles
-        	memset(nodeInfec, 0, nNodes*sizeof(short));
-
+		//-------- Epidemic simulation --------//
+		
 		epiSimulation(nodeStatus, nodeInfec, edge, edgeLD, vaccOrder, vaccTime,
-				expTimeNode, infecTimeNode, pars, ranUni, gammaE, gammaI);
+				expTime, infecTime, pars, ranUni, gammaE, gammaI,
+				newI1_vec, newI2_vec, nInfec1_vec, nInfec2_vec);
 
-		sprintf(dirFile, "newI_%d.dat", ss);
-                fNewI = fopen(dirFile, "w");
-                for (tt=0; tt<maxDays; tt++) fprintf(fNewI, "%d\n", newI1_vec[tt], newI2_vec[tt]);
-                fclose(fNewI);
+		sprintf(dirFile, "infected_%d.dat", ss);
+                fInfec = fopen(dirFile, "w");
+		fprintf(fInfec, "Days\tNewI1\tNewI2\tInfec1\tInfec2\n");
+                for (tt=0; tt<maxDays; tt++) fprintf(fInfec, "%d\t%d\t%d\t%d\t%d\n",
+				tt, newI1_vec[tt], newI2_vec[tt], nInfec1_vec[tt], nInfec2_vec[tt]);
+                fclose(fInfec);
                 memset(newI1_vec, 0, maxDays*sizeof(int));
                 memset(newI2_vec, 0, maxDays*sizeof(int));
+                memset(nInfec1_vec, 0, maxDays*sizeof(int));
+                memset(nInfec2_vec, 0, maxDays*sizeof(int));
 	}
 	
 	free(nodeStatus);
 	free(nodeInfec);
-	free(expTimeNode);
-	free(infecTimeNode);
+	free(expTime);
+	free(infecTime);
 	free(vaccTime);
 	free(vaccOrder);
 	free(edge);
 	free(edgeLD);
+	free(newI1_vec);
+	free(newI2_vec);
+	free(nInfec1_vec);
+	free(nInfec2_vec);
 
 	return 0;
 }
