@@ -261,11 +261,13 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 	{
 		case 0:// Susceptible
 		case 10:// Recently vaccinated
+			//if (jjStatus == 3)
 			if (jjStatus == 2 or jjStatus == 3)
 			{
 				prob = p1;
 				variant = 1;
 			}
+			//if (jjStatus == -3)
 			if (jjStatus == -2 or jjStatus == -3)
 			{
 				prob = p2;
@@ -274,11 +276,13 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 			break;
 
 		case 11:// One-dose vaccinated
+			//if (jjStatus == 3)
 			if (jjStatus == 2 or jjStatus == 3)
 			{
 				prob = ineff_1d*p1;
 				variant = 1;
 			}
+			//if (jjStatus == -3)
 			if (jjStatus == -2 or jjStatus == -3)
 			{
 				prob = ineff_1d*p2;
@@ -287,11 +291,13 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 			break;
 
 		case 12:// Two-dose vaccinated
+			//if (jjStatus == 3)
 			if (jjStatus == 2 or jjStatus == 3)
 			{
 				prob = ineff_2d*p1;
 				variant = 1;
 			}
+			//if (jjStatus == -3)
 			if (jjStatus == -2 or jjStatus == -3)
 			{
 				prob = ineff_2d*p2;
@@ -300,6 +306,7 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 			break;
 
 		case 4:// Removed 1
+			//if (jjStatus == -3)
 			if (jjStatus == -2 or jjStatus == -3)
 			{
 				prob = p2;
@@ -556,7 +563,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                         	case 1: // Exposed 1
                                 	expTime[ii]--;
                                 	if (expTime[ii] > 0) break;
-                                	if (ranUni.doub() >= probDevInfec)
+                                	if (ranUni.doub() > probDevInfec)
                                 	{
                                         	nodeStatus[ii] = 2; // Asymptomatic
                                         	nExpo--;
@@ -576,7 +583,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                         	case -1: // Exposed 2
                                 	expTime[ii]--;
                                 	if (expTime[ii] > 0) break;
-                                	if (ranUni.doub() <= probDevInfec)
+                                	if (ranUni.doub() > probDevInfec)
                                 	{
                                         	nodeStatus[ii] = -2; // Asymptomatic 2
                                         	nExpo2--;
@@ -770,11 +777,14 @@ int main()
 	Ran ranUni(seed);
 	// In this gamma-distributed random generator a = k, b = 1/theta
 	// Exposed time = 5d +- 1d
-	//Gammadev gammaE(25.0,5.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
-	Gammadev gammaE(9.0,3.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+	Gammadev gammaE(25.0,5.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
 	// Infected time = 6d +- 2d
-	//Gammadev gammaI(36.0/4.0,6.0/4.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
-	Gammadev gammaI(100.0/9.0,10.0/9.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+	Gammadev gammaI(36.0/4.0,6.0/4.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+						//
+	// Exposed time = 3d +- 1d
+	//Gammadev gammaE(9.0,3.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
+	// Infected time = 10d +- 3d
+	//Gammadev gammaI(100.0/9.0,10.0/9.0,seed); // a = (aveTime/stdTime)^2; b = aveTime/stdTime^2
 
         int *edge, *edgeLD;
         short *nodeStatus, *nodeInfec;
