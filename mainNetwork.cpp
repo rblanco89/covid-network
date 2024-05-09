@@ -379,7 +379,8 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 	int vaccPerDay = pars.vaccPerDay;
 	int vaccGoal = pars.vaccGoal;
 
-        short flagLockdown, flagVariant2, switchLD, flagVacc, count, countV;
+        short flagLockdown, flagVariant2, switchLD, flagVacc, flagCount,
+	      count, countV;
         int time, timeLD, idxV;
         float auxF;
 
@@ -392,6 +393,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
         timeLD = 0;
 	idxV = 0;
         flagVacc = 0;
+	flagCount = 1;
 
 	if (flagInitVacc) flagActVacc = 0;
 
@@ -406,15 +408,16 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 
                 time++;
                 if (time > maxDays) break;
+		printf("time = %d\n", time);
 		
 		// Activate lockdown and/or vaccination
-		if (flagActLD or flagActVacc)
-			if (!flagLockdown or !flagVacc)
-			{
-				if (newI + newI2 > oldI) daysNewI++;
-                		else daysNewI = 0;
-                		oldI = newI + newI2;
-			}
+		if (flagCount)
+		{
+			if (newI + newI2 > oldI) daysNewI++;
+                	else daysNewI = 0;
+                	oldI = newI + newI2;
+			printf("daysNewI = %d\n", daysNewI);
+		}
 
 		// Lockdown
                 if (flagActLD and !flagLockdown)
@@ -422,6 +425,8 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                         {
                                 flagLockdown = 1; // Activate lockdown once
                                 switchLD = 1;
+				if (!flagActVacc) flagCount = 0;
+				else if (flagVacc) flagCount = 0;
                         }
 
                 if (flagLockdown == 1)
@@ -451,6 +456,8 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                         {
                                 flagVacc = 1; // Activate vaccination
                                 if (vaccPerDay == 0) flagVacc = -1; // Deactivate vaccination
+				if (!flagActLD) flagCount = 0;
+				else if (flagLockdown) flagCount = 0;
                         }
 
                 // Vaccinates Susceptible nodes
@@ -468,8 +475,8 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                                 vaccGoal--;
                                 if (vaccGoal == 0) break;
                         }
-                        if (vaccGoal == 0) flagVacc = 3;
-                        if (idxV == nNodes) flagVacc = 3;
+                        if (vaccGoal == 0) flagVacc = -1;
+                        if (idxV == nNodes) flagVacc = -1;
                 }
 
 		// Restart counts
@@ -542,6 +549,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 				case 10: // recently vaccinated
 				case 11: // one-dose vaccinated
 				case 12: // two-dose vaccinated
+                                	if (vaccTime[ii] <= 0) break;
                                 	if (nodeInfec[ii] == 1)
                                 	{
                                         	nodeStatus[ii] = 1;
@@ -554,7 +562,6 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                                         	nExpo2++;
 						break;
                                 	}
-                                	if (vaccTime[ii] <= 0) break;
 					vaccTime[ii]--;
 					if (vaccTime[ii] == 14) nodeStatus[ii] = 11;
 					if (vaccTime[ii] == 0) nodeStatus[ii] = 12;
@@ -899,7 +906,7 @@ int main()
 		if (flagActVacc)
 		{
 			// Time between first and second dose
-        		for (ii=0; ii<nNodes; ii++) vaccTime[ii] = 28;
+        		for (ii=0; ii<nNodes; ii++) vaccTime[ii] = 21;
 
         		// Vaccination order by node degree or randomly
         		for (ii=0; ii<nNodes; ii++) vaccOrder[ii] = ii;
