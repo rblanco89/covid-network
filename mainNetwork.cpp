@@ -840,9 +840,11 @@ int main()
 	pars.ineff_1d = ineff_1d;
 	pars.ineff_2d = ineff_2d;
 
-	int auxInt, ee, ii, jj, tt, ss;
+	int auxInt, ee, ii, jj, tt, ss, sumI1, sumI2;
 	char dirFile[100];
-        FILE *fInfec;
+        FILE *fInfec, *fSumI;
+
+	fSumI = fopen("sumInfec.dat", "w");
 
         int *newI1_vec, *newI2_vec;
         int *nInfec1_vec, *nInfec2_vec;
@@ -924,17 +926,29 @@ int main()
 				expTime, infecTime, pars, ranUni, gammaE, gammaI,
 				newI1_vec, newI2_vec, nInfec1_vec, nInfec2_vec);
 
+		//-------- Print some results --------//
+		
 		sprintf(dirFile, "infected_%d.dat", ss);
                 fInfec = fopen(dirFile, "w");
 		fprintf(fInfec, "Days\tNewI1\tNewI2\tInfec1\tInfec2\n");
-                for (tt=0; tt<maxDays; tt++) fprintf(fInfec, "%d\t%d\t%d\t%d\t%d\n",
+		sumI1 = 0;
+		sumI2 = 0;
+                for (tt=0; tt<maxDays; tt++)
+		{
+			fprintf(fInfec, "%d\t%d\t%d\t%d\t%d\n",
 				tt, newI1_vec[tt], newI2_vec[tt], nInfec1_vec[tt], nInfec2_vec[tt]);
+			sumI1 += newI1_vec[tt];
+			sumI2 += newI2_vec[tt];
+		}
+		fprintf(fSumI, "%d\t%d\n", sumI1, sumI2);
                 fclose(fInfec);
+
                 memset(newI1_vec, 0, maxDays*sizeof(int));
                 memset(newI2_vec, 0, maxDays*sizeof(int));
                 memset(nInfec1_vec, 0, maxDays*sizeof(int));
                 memset(nInfec2_vec, 0, maxDays*sizeof(int));
 	}
+	fclose(fSumI);
 	
 	free(nodeStatus);
 	free(nodeInfec);
