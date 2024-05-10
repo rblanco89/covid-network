@@ -315,7 +315,7 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 			break;
     	}
 
-        if (variant) if (ranUni.doub() <= prob) nodeInfec[ii] = variant;
+        if (variant) if (ranUni.doub() < prob) nodeInfec[ii] = variant;
 
 	return;
 }
@@ -408,7 +408,6 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 
                 time++;
                 if (time > maxDays) break;
-		printf("time = %d\n", time);
 		
 		// Activate lockdown and/or vaccination
 		if (flagCount)
@@ -416,7 +415,6 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 			if (newI + newI2 > oldI) daysNewI++;
                 	else daysNewI = 0;
                 	oldI = newI + newI2;
-			printf("daysNewI = %d\n", daysNewI);
 		}
 
 		// Lockdown
@@ -487,6 +485,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 
                 if (nContagious == 0)
                 {
+			if (pars.probInfec2 == 0.0) break;
                         if (variant2Intro == 0.0) break;
                         if (flagVariant2 == 1) break;
                         if (time < variant2Intro) continue;
@@ -947,8 +946,9 @@ int main()
 			sumI1 += newI1_vec[tt];
 			sumI2 += newI2_vec[tt];
 		}
-		fprintf(fSumI, "%d\t%d\n", sumI1, sumI2);
                 fclose(fInfec);
+
+		fprintf(fSumI, "%d\t%d\n", sumI1, sumI2);
 
                 memset(newI1_vec, 0, maxDays*sizeof(int));
                 memset(newI2_vec, 0, maxDays*sizeof(int));
