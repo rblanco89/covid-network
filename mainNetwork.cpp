@@ -24,8 +24,8 @@ struct params
 	float probDevInfec;
 	float probInfec1;
 	float probInfec2;
-	float ineff_1d;
-	float ineff_2d;
+	float vaccEff_1d;
+	float vaccEff_2d;
 };
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- FUNCTIONS =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
@@ -245,15 +245,15 @@ void quickSort(int *arrIdx, int *arrKey, int size)
 //---------------------------------------------------------------------------------//
 
 void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
-		params pars, Ran &ranUni)
+		int vaccTime, params pars, Ran &ranUni)
 {
 	short variant;
-	float prob, p1, p2, ineff_1d, ineff_2d;
+	float prob, p1, p2, vaccEff_1d, vaccEff_2d;
 
 	p1 = pars.probInfec1;
 	p2 = pars.probInfec2;
-	ineff_1d = pars.ineff_1d;
-	ineff_2d = pars.ineff_2d;
+	vaccEff_1d = pars.vaccEff_1d;
+	vaccEff_2d = pars.vaccEff_2d;
 	variant = 0;
 	prob = 0.0;
 
@@ -279,13 +279,13 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 			//if (jjStatus == 3)
 			if (jjStatus == 2 or jjStatus == 3)
 			{
-				prob = ineff_1d*p1;
+				prob = (1.0 - vaccEff_1d)*p1;
 				variant = 1;
 			}
 			//if (jjStatus == -3)
 			if (jjStatus == -2 or jjStatus == -3)
 			{
-				prob = ineff_1d*p2;
+				prob = (1.0 - vaccEff_1d)*p2;
 				variant = -1;
 			}
 			break;
@@ -294,13 +294,19 @@ void transmission(short *nodeInfec, int ii, int iiStatus, int jjStatus,
 			//if (jjStatus == 3)
 			if (jjStatus == 2 or jjStatus == 3)
 			{
-				prob = ineff_2d*p1;
+				prob = (1.0 - vaccEff_2d)*p1;
 				variant = 1;
 			}
 			//if (jjStatus == -3)
 			if (jjStatus == -2 or jjStatus == -3)
 			{
-				prob = ineff_2d*p2;
+				prob = (1.0 - vaccEff_2d)*p2;
+				if (vaccTime < -14) prob = (1.0 - 0.690*vaccEff_2d)*p2;
+				if (vaccTime < -28) prob = (1.0 - 0.513*vaccEff_2d)*p2;
+				if (vaccTime < -63) prob = (1.0 - 0.317*vaccEff_2d)*p2;
+				if (vaccTime < -98) prob = (1.0 - 0.162*vaccEff_2d)*p2;
+				if (vaccTime < -133) prob = (1.0 - 0.121*vaccEff_2d)*p2;
+				if (vaccTime < -168) prob = (1.0 - 0.093*vaccEff_2d)*p2;
 				variant = -1;
 			}
 			break;
@@ -361,7 +367,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
         for (nn=0; nn<initInfec; nn++)
         {
                 auxInt = ranUni.int32()%nNodes;
-                while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
+                //while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
                 nodeStatus[auxInt] = 3; // Infected
                 nInfec++;
                 newI++;
@@ -486,19 +492,18 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                 if (nContagious == 0)
                 {
 			if (pars.probInfec2 == 0.0) break;
-                        if (variant2Intro == 0.0) break;
                         if (flagVariant2 == 1) break;
                         if (time < variant2Intro) continue;
                 }
 
 		// Finds a Susceptible (0) node and infects it with variant 2
-                if (time == variant2Intro)
+                if (!flagVariant2) if (time > variant2Intro)
                 {
                         flagVariant2 = 1;
                         for (nn=0; nn<initInfec; nn++)
                         {
                                 auxInt = ranUni.int32()%nNodes;
-                                while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
+                                //while (nodeStatus[auxInt] != 0) auxInt = ranUni.int32()%nNodes;
                                 nodeStatus[auxInt] = -3; // Infected
                                 nInfec2++;
                                 newI2++;
@@ -520,9 +525,9 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
                         jjStatus = nodeStatus[jj];
 
 			// check ii with jj
-			transmission(nodeInfec, ii, iiStatus, jjStatus, pars, ranUni);
+			transmission(nodeInfec, ii, iiStatus, jjStatus, vaccTime[ii], pars, ranUni);
 			// check jj with ii
-			transmission(nodeInfec, jj, jjStatus, iiStatus, pars, ranUni);
+			transmission(nodeInfec, jj, jjStatus, iiStatus, vaccTime[jj], pars, ranUni);
                 }
 
                 // Update states
@@ -548,7 +553,7 @@ void epiSimulation(short *nodeStatus, short *nodeInfec, int *edge, int *edgeLD,
 				case 10: // recently vaccinated
 				case 11: // one-dose vaccinated
 				case 12: // two-dose vaccinated
-                                	if (vaccTime[ii] <= 0) break;
+                                	//if (vaccTime[ii] <= 0) break;
                                 	if (nodeInfec[ii] == 1)
                                 	{
                                         	nodeStatus[ii] = 1;
@@ -814,10 +819,6 @@ int main()
         int *vaccOrder;
         int vaccGoal, vaccPerDay;
 	
-        float ineff_1d, ineff_2d;
-	ineff_1d = 1.0 - vaccEff_1d;
-	ineff_2d = 1.0 - vaccEff_2d;
-
         vaccTime = (short*) malloc(nNodes*sizeof(short));
         vaccOrder = (int*) malloc(nNodes*sizeof(int));
 
@@ -843,8 +844,8 @@ int main()
 	pars.vaccGoal = vaccGoal;
 	pars.probInfec1 = probInfec1;
 	pars.probInfec2 = probInfec2;
-	pars.ineff_1d = ineff_1d;
-	pars.ineff_2d = ineff_2d;
+	pars.vaccEff_1d = vaccEff_1d;
+	pars.vaccEff_2d = vaccEff_2d;
 
 	int auxInt, ee, ii, jj, tt, ss, sumI1, sumI2;
 	char dirFile[100];
