@@ -26,4 +26,4 @@
 0				# Population fraction to vaccinate (goal) 
 0.10				# Population fraction to vaccinate per day (<= goal)
 0.65				# One-dose vaccine efficacy against variant 1
-0.90				# Two-dose vaccine efficacy against variant 1
+0.95				# Two-dose vaccine efficacy against variant 1
